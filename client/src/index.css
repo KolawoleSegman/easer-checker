@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply bg-hero-gradient text-white font-sans antialiased min-h-screen overflow-x-hidden;
+  }
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-white/5 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gradient-to-b from-primary-400 to-accent-400 rounded-full;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-glass-bg backdrop-blur-xl border border-glass-border rounded-2xl shadow-glass;
+  }
+  .glass-hover {
+    @apply hover:bg-glass-hover transition-all duration-300;
+  }
+
+  .btn-premium {
+    @apply px-6 py-3 bg-gradient-to-r from-primary-500 to-accent-500 
+           text-white font-semibold rounded-xl shadow-lg 
+           transition-all duration-300 transform 
+           hover:scale-[1.02] hover:shadow-glow 
+           focus:outline-none focus:ring-2 focus:ring-primary-400 focus:ring-offset-2 focus:ring-offset-gray-900;
+  }
+  .btn-premium-outline {
+    @apply px-6 py-3 bg-transparent border-2 border-primary-400 
+           text-primary-300 font-semibold rounded-xl 
+           transition-all duration-300 
+           hover:bg-primary-500/20 hover:border-primary-300 hover:shadow-glow;
+  }
+
+  .badge-active {
+    @apply px-3 py-1 rounded-full text-xs font-medium 
+           bg-emerald-500/20 text-emerald-300 border border-emerald-500/30;
+  }
+  .badge-white-wins {
+    @apply px-3 py-1 rounded-full text-xs font-medium 
+           bg-blue-500/20 text-blue-300 border border-blue-500/30;
+  }
+  .badge-black-wins {
+    @apply px-3 py-1 rounded-full text-xs font-medium 
+           bg-purple-500/20 text-purple-300 border border-purple-500/30;
+  }
+  .badge-draw {
+    @apply px-3 py-1 rounded-full text-xs font-medium 
+           bg-yellow-500/20 text-yellow-300 border border-yellow-500/30;
+  }
+}
