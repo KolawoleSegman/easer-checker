@@ -1,0 +1,60 @@
+# Render Blueprint — deploy both services at once via
+# Render Dashboard → New → Blueprint → select this repo.
+#
+# IMPORTANT — read before deploying:
+# This defaults to the FREE instance type for both services so it deploys
+# at zero cost. Render's Free tier has an EPHEMERAL filesystem and does
+# NOT support persistent disks (that requires a paid instance type) — see
+# https://render.com/docs/free. That means on Free:
+#   - Your SQLite database (server/data/) resets on every deploy/restart.
+#   - Uploaded avatars are lost on every deploy/restart.
+#   - The backend spins down after 15 min idle and cold-starts on the
+#     next request (~30-60s).
+# That's fine for trying things out, but NOT fine for a real deployment
+# with real users. To make data persistent, upgrade the backend service to
+# a paid plan (e.g. "starter") and uncomment the `disk` block below.
+
+services:
+  # ---- Backend: NestJS API + Socket.IO ----
+  - type: web
+    name: easer-checker-backend
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    autoDeploy: true
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATA_DIR
+        value: /var/data
+    # Uncomment the block below AND change `plan: free` to a paid plan
+    # (e.g. `plan: starter`) to persist the DB + avatars across deploys.
+    # disk:
+    #   name: easer-checker-data
+    #   mountPath: /var/data
+    #   sizeGB: 1
+
+  # ---- Frontend: static React app ----
+  - type: web
+    name: easer-checker-frontend
+    runtime: static
+    rootDir: client
+    # Render doesn't interpolate variables inside render.yaml itself, so
+    # BACKEND_HOST is resolved as a real env var and interpolated by the
+    # shell here at build time — that's how VITE_API_URL gets baked into
+    # the production build.
+    buildCommand: npm install && VITE_API_URL="https://${BACKEND_HOST}" npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    envVars:
+      - key: BACKEND_HOST
+        fromService:
+          type: web
+          name: easer-checker-backend
+          property: host
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

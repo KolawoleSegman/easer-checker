@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.DS_Store
+*.log
+npm-debug.log*
+
+# server runtime data (SQLite DB + uploaded avatars) — never commit these
+server/data/
+server/uploads/
+
+# env files with secrets — commit .env.example instead
+.env
+.env.local
+!client/.env.example
