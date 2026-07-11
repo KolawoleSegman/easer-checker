@@ -24,7 +24,15 @@ const ReplayPicker = () => {
   useEffect(() => {
     api
       .get("/users/me/games")
-      .then((res) => setGames(res.data.filter((g: RecentGame) => g.result !== "ONGOING")))
+      .then((res) => {
+        // ✅ SAFE: ensure we always have an array
+        const data = res.data;
+        const gamesArray = Array.isArray(data) ? data : (data?.data ?? []);
+        const finished = gamesArray.filter(
+          (g: RecentGame) => g.result !== "ONGOING",
+        );
+        setGames(finished);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -98,7 +106,8 @@ const ReplayViewer = ({ id }: { id: string }) => {
       .get(`/games/${id}`)
       .then((res) => {
         const data = res.data;
-        setMoves(data.moves);
+        // ✅ SAFE: ensure moves is always an array
+        setMoves(data.moves ?? []);
         setLoading(false);
       })
       .catch((err) => {
@@ -112,6 +121,7 @@ const ReplayViewer = ({ id }: { id: string }) => {
     const b = new Board();
     for (let i = 0; i < step; i++) {
       const m = moves[i];
+      if (!m) continue;
       const from = {
         row: parseInt(m.fromSquare.split("-")[0]),
         col: parseInt(m.fromSquare.split("-")[1]),
@@ -120,7 +130,13 @@ const ReplayViewer = ({ id }: { id: string }) => {
         row: parseInt(m.toSquare.split("-")[0]),
         col: parseInt(m.toSquare.split("-")[1]),
       };
-      const move = new Move(from.row, from.col, to.row, to.col, m.capturedPiece !== null);
+      const move = new Move(
+        from.row,
+        from.col,
+        to.row,
+        to.col,
+        m.capturedPiece !== null,
+      );
       b.makeMove(move);
     }
     setBoard({ board: b.toJSON().board, currentTurn: b.currentTurn });
@@ -140,7 +156,9 @@ const ReplayViewer = ({ id }: { id: string }) => {
   };
 
   if (loading)
-    return <div className="p-8 text-center text-gray-400">Loading replay...</div>;
+    return (
+      <div className="p-8 text-center text-gray-400">Loading replay...</div>
+    );
   if (error) return <div className="p-8 text-center text-red-400">{error}</div>;
 
   return (
@@ -155,7 +173,15 @@ const ReplayViewer = ({ id }: { id: string }) => {
         <h1 className="text-3xl font-bold text-white mb-4">Game Replay</h1>
         <div className="glass p-4 mb-4">
           <div className="flex justify-center">
-            {board && <GameBoard boardState={board} onSquareClick={() => {}} selectedSquare={null} validMoves={[]} lastMove={null} />}
+            {board && (
+              <GameBoard
+                boardState={board}
+                onSquareClick={() => {}}
+                selectedSquare={null}
+                validMoves={[]}
+                lastMove={null}
+              />
+            )}
           </div>
         </div>
         <div className="glass p-4">
@@ -163,16 +189,36 @@ const ReplayViewer = ({ id }: { id: string }) => {
             <span className="text-white text-sm">
               Move {step} / {moves.length}
             </span>
-            <button onClick={() => goToStep(0)} className="text-gray-400 hover:text-white text-sm">⏮</button>
-            <button onClick={() => goToStep(step - 1)} className="btn-premium text-sm py-1 px-3">◀</button>
+            <button
+              onClick={() => goToStep(0)}
+              className="text-gray-400 hover:text-white text-sm"
+            >
+              ⏮
+            </button>
+            <button
+              onClick={() => goToStep(step - 1)}
+              className="btn-premium text-sm py-1 px-3"
+            >
+              ◀
+            </button>
             <button
               onClick={() => setPlaying((p) => !p)}
               className="btn-premium text-sm py-1 px-4"
             >
               {playing ? "⏸ Pause" : "▶ Play"}
             </button>
-            <button onClick={() => goToStep(step + 1)} className="btn-premium text-sm py-1 px-3">▶</button>
-            <button onClick={() => goToStep(moves.length)} className="text-gray-400 hover:text-white text-sm">⏭</button>
+            <button
+              onClick={() => goToStep(step + 1)}
+              className="btn-premium text-sm py-1 px-3"
+            >
+              ▶
+            </button>
+            <button
+              onClick={() => goToStep(moves.length)}
+              className="text-gray-400 hover:text-white text-sm"
+            >
+              ⏭
+            </button>
             <select
               value={speed}
               onChange={(e) => setSpeed(parseInt(e.target.value))}
@@ -190,7 +236,9 @@ const ReplayViewer = ({ id }: { id: string }) => {
                 key={idx}
                 onClick={() => goToStep(idx + 1)}
                 className={`text-sm cursor-pointer mr-2 px-1.5 py-0.5 rounded ${
-                  idx < step ? "text-yellow-300 bg-yellow-500/10" : "text-gray-400 hover:text-white"
+                  idx < step
+                    ? "text-yellow-300 bg-yellow-500/10"
+                    : "text-gray-400 hover:text-white"
                 }`}
               >
                 {idx + 1}. {m.fromSquare}→{m.toSquare}

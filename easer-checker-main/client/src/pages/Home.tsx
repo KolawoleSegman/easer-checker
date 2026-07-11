@@ -71,7 +71,9 @@ const Home = () => {
     try {
       setLoadingGames(true);
       const res = await api.get("/users/me/games");
-      setRecentGames(res.data);
+      // ✅ SAFE: ensure we always set an array
+      const games = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+      setRecentGames(games);
     } catch {
       // ignore
     } finally {
@@ -137,7 +139,10 @@ const Home = () => {
     ? `${API_BASE_URL}${user.avatar}`
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=random&size=40&rounded=true`;
 
-  const ongoingGames = recentGames.filter((g) => g.result === "ONGOING");
+  // ✅ SAFE: guard against non-array recentGames
+  const ongoingGames = (recentGames || []).filter(
+    (g) => g.result === "ONGOING",
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 relative overflow-hidden">
@@ -393,7 +398,9 @@ const Home = () => {
               <div className="text-sm text-gray-400 p-3">Loading…</div>
             ) : recentGames.length === 0 ? (
               <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
-                <span className="text-sm text-gray-300">No games played yet</span>
+                <span className="text-sm text-gray-300">
+                  No games played yet
+                </span>
               </div>
             ) : (
               recentGames.slice(0, 8).map((g) => {
@@ -406,7 +413,9 @@ const Home = () => {
                     className="flex justify-between items-center p-3 bg-white/5 hover:bg-white/10 rounded-xl transition cursor-pointer"
                     onClick={() =>
                       navigate(
-                        g.result === "ONGOING" ? `/game/${g.id}` : `/replay/${g.id}`,
+                        g.result === "ONGOING"
+                          ? `/game/${g.id}`
+                          : `/replay/${g.id}`,
                       )
                     }
                   >
@@ -427,8 +436,10 @@ const Home = () => {
                           )}
                         </div>
                         <div className="text-xs text-gray-400">
-                          {g.myColor === "white" ? "Playing White" : "Playing Black"} ·{" "}
-                          {new Date(g.startedAt).toLocaleDateString()}
+                          {g.myColor === "white"
+                            ? "Playing White"
+                            : "Playing Black"}{" "}
+                          · {new Date(g.startedAt).toLocaleDateString()}
                         </div>
                       </div>
                     </div>

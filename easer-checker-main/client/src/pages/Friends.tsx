@@ -41,10 +41,8 @@ const Friends = () => {
       } else {
         setResults([]);
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, 300);
     return () => clearTimeout(handle);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   const fetchData = async () => {
@@ -53,8 +51,9 @@ const Friends = () => {
         api.get("/friends"),
         api.get("/friends/requests"),
       ]);
-      setFriends(friendsRes.data);
-      setRequests(requestsRes.data);
+      // ✅ Ensure we always set arrays
+      setFriends(Array.isArray(friendsRes.data) ? friendsRes.data : []);
+      setRequests(Array.isArray(requestsRes.data) ? requestsRes.data : []);
     } catch (err) {
       console.error(err);
     }
@@ -63,8 +62,12 @@ const Friends = () => {
   const runSearch = async () => {
     try {
       setSearching(true);
-      const res = await api.get(`/users/search?q=${encodeURIComponent(query.trim())}`);
-      setResults(res.data);
+      const res = await api.get(
+        `/users/search?q=${encodeURIComponent(query.trim())}`,
+      );
+      // ✅ Safely extract the array
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+      setResults(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -77,7 +80,10 @@ const Friends = () => {
       setMessage("");
       await api.post(`/friends/request/${userId}`);
       setMessage("Friend request sent!");
-      setResults((r) => r.filter((u) => u.id !== userId));
+      // ✅ Only filter if results is an array
+      setResults((prev) =>
+        Array.isArray(prev) ? prev.filter((u) => u.id !== userId) : [],
+      );
     } catch (err: any) {
       setMessage(err.response?.data?.message || "Failed to send request");
     }
@@ -132,7 +138,9 @@ const Friends = () => {
             placeholder="Search username..."
             className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-400"
           />
-          {message && <p className="mt-2 text-sm text-primary-300">{message}</p>}
+          {message && (
+            <p className="mt-2 text-sm text-primary-300">{message}</p>
+          )}
 
           {query.trim().length > 0 && (
             <div className="mt-3 space-y-2">
@@ -153,8 +161,12 @@ const Friends = () => {
                         className="w-9 h-9 rounded-full border border-white/20 object-cover"
                       />
                       <div>
-                        <div className="text-white text-sm font-medium">{u.username}</div>
-                        <div className="text-gray-400 text-xs">ELO {u.eloRating}</div>
+                        <div className="text-white text-sm font-medium">
+                          {u.username}
+                        </div>
+                        <div className="text-gray-400 text-xs">
+                          ELO {u.eloRating}
+                        </div>
                       </div>
                     </div>
                     <button
@@ -198,7 +210,9 @@ const Friends = () => {
           Your Friends ({friends.length})
         </h2>
         {friends.length === 0 ? (
-          <p className="text-gray-400 text-sm">No friends yet — search above to add some!</p>
+          <p className="text-gray-400 text-sm">
+            No friends yet — search above to add some!
+          </p>
         ) : (
           <ul className="space-y-2">
             {friends.map((f) => (

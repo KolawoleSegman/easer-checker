@@ -43,20 +43,27 @@ const TournamentDetail = () => {
     fetchDetail();
     const interval = setInterval(fetchDetail, 5000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchDetail = async () => {
     try {
       const res = await api.get(`/tournaments/${id}`);
-      const detail: TournamentDetailData = res.data;
-      setData(detail);
+      const raw: TournamentDetailData = res.data;
+
+      // ✅ Ensure players and matches are arrays
+      const safeData: TournamentDetailData = {
+        ...raw,
+        players: Array.isArray(raw.players) ? raw.players : [],
+        matches: Array.isArray(raw.matches) ? raw.matches : [],
+      };
+
+      setData(safeData);
       setError("");
 
       // Auto-report results: if a match's underlying game has finished but
       // the bracket hasn't been updated yet, report it so the bracket
       // advances automatically without needing a manual "report" click.
-      const inProgress = detail.matches.filter(
+      const inProgress = safeData.matches.filter(
         (m) => m.status === "IN_PROGRESS" && m.gameId,
       );
       for (const m of inProgress) {
@@ -65,7 +72,10 @@ const TournamentDetail = () => {
           const g = gameRes.data.game;
           if (g.status === "WHITE_WINS" || g.status === "BLACK_WINS") {
             const winnerId = g.winnerId;
-            if (winnerId && (winnerId === m.player1Id || winnerId === m.player2Id)) {
+            if (
+              winnerId &&
+              (winnerId === m.player1Id || winnerId === m.player2Id)
+            ) {
               await api.post(`/tournaments/match/${m.id}/result`, { winnerId });
             }
           }
@@ -82,7 +92,10 @@ const TournamentDetail = () => {
 
   const usernameFor = (userId: string | null) => {
     if (!userId) return "TBD";
-    return data?.players.find((p) => p.userId === userId)?.username || "Unknown";
+    // ✅ Safe access: use optional chaining and fallback
+    return (
+      data?.players?.find((p) => p.userId === userId)?.username || "Unknown"
+    );
   };
 
   const joinTournament = async () => {
@@ -103,12 +116,21 @@ const TournamentDetail = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-gray-400">Loading tournament...</div>;
-  if (error || !data) return <div className="p-8 text-center text-red-400">{error}</div>;
+  if (loading)
+    return (
+      <div className="p-8 text-center text-gray-400">Loading tournament...</div>
+    );
+  if (error || !data)
+    return <div className="p-8 text-center text-red-400">{error}</div>;
 
-  const rounds = Array.from(new Set(data.matches.map((m) => m.round))).sort((a, b) => a - b);
+  // ✅ Safe access to data properties
+  const players = data.players || [];
+  const matches = data.matches || [];
+  const rounds = Array.from(new Set(matches.map((m) => m.round))).sort(
+    (a, b) => a - b,
+  );
   const isCreator = me?.id === data.createdBy;
-  const isPlayer = data.players.some((p) => p.userId === me?.id);
+  const isPlayer = players.some((p) => p.userId === me?.id);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 p-8">
@@ -124,7 +146,9 @@ const TournamentDetail = () => {
           <div className="flex flex-wrap justify-between items-start gap-4">
             <div>
               <h1 className="text-3xl font-bold text-white">🏅 {data.name}</h1>
-              <p className="text-gray-400 mt-1">{data.description || "No description"}</p>
+              <p className="text-gray-400 mt-1">
+                {data.description || "No description"}
+              </p>
             </div>
             <span
               className={`px-3 py-1 rounded-full text-xs font-medium border ${
@@ -141,17 +165,20 @@ const TournamentDetail = () => {
 
           <div className="mt-4 flex gap-2 flex-wrap">
             {data.status === "WAITING" && !isPlayer && (
-              <button onClick={joinTournament} className="btn-premium text-sm py-2 px-4">
+              <button
+                onClick={joinTournament}
+                className="btn-premium text-sm py-2 px-4"
+              >
                 Join Tournament
               </button>
             )}
             {data.status === "WAITING" && isCreator && (
               <button
                 onClick={startTournament}
-                disabled={data.players.length < 2}
+                disabled={players.length < 2}
                 className="btn-premium text-sm py-2 px-4 bg-green-600 hover:bg-green-700 disabled:opacity-40"
               >
-                Start Tournament ({data.players.length}/{data.maxPlayers})
+                Start Tournament ({players.length}/{data.maxPlayers})
               </button>
             )}
           </div>
@@ -160,10 +187,10 @@ const TournamentDetail = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="glass p-6">
             <h2 className="text-lg font-semibold text-white mb-3">
-              Players ({data.players.length}/{data.maxPlayers})
+              Players ({players.length}/{data.maxPlayers})
             </h2>
             <ul className="space-y-2">
-              {data.players.map((p) => (
+              {players.map((p) => (
                 <li
                   key={p.userId}
                   className="flex justify-between items-center text-sm bg-white/5 rounded-lg px-3 py-2"
@@ -199,42 +226,65 @@ const TournamentDetail = () => {
                       Round {round}
                     </h3>
                     <div className="space-y-2">
-                      {data.matches
+                      {matches
                         .filter((m) => m.round === round)
                         .map((m) => {
                           const p1 = usernameFor(m.player1Id);
                           const p2 = usernameFor(m.player2Id);
                           const isMyMatch =
-                            me && (m.player1Id === me.id || m.player2Id === me.id);
+                            me &&
+                            (m.player1Id === me.id || m.player2Id === me.id);
                           return (
                             <div
                               key={m.id}
                               className="flex justify-between items-center bg-white/5 rounded-lg px-4 py-3"
                             >
                               <div className="text-sm text-white">
-                                <span className={m.winnerId === m.player1Id ? "text-yellow-300 font-semibold" : ""}>
+                                <span
+                                  className={
+                                    m.winnerId === m.player1Id
+                                      ? "text-yellow-300 font-semibold"
+                                      : ""
+                                  }
+                                >
                                   {p1}
                                 </span>
                                 <span className="text-gray-500 mx-2">vs</span>
-                                <span className={m.winnerId === m.player2Id ? "text-yellow-300 font-semibold" : ""}>
+                                <span
+                                  className={
+                                    m.winnerId === m.player2Id
+                                      ? "text-yellow-300 font-semibold"
+                                      : ""
+                                  }
+                                >
                                   {p2}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-400">{m.status}</span>
+                                <span className="text-xs text-gray-400">
+                                  {m.status}
+                                </span>
                                 {m.gameId && m.status !== "COMPLETED" && (
                                   <button
-                                    onClick={() => navigate(`/game/${m.gameId}`)}
+                                    onClick={() =>
+                                      navigate(`/game/${m.gameId}`)
+                                    }
                                     className="btn-premium text-xs py-1 px-3"
                                     disabled={!isMyMatch}
-                                    title={isMyMatch ? "Play this match" : "Only players in this match can play it"}
+                                    title={
+                                      isMyMatch
+                                        ? "Play this match"
+                                        : "Only players in this match can play it"
+                                    }
                                   >
                                     {isMyMatch ? "Play" : "Spectate soon"}
                                   </button>
                                 )}
                                 {m.status === "COMPLETED" && m.gameId && (
                                   <button
-                                    onClick={() => navigate(`/replay/${m.gameId}`)}
+                                    onClick={() =>
+                                      navigate(`/replay/${m.gameId}`)
+                                    }
                                     className="btn-premium-outline text-xs py-1 px-3"
                                   >
                                     Replay

@@ -55,8 +55,12 @@ const GamePage = () => {
 
   // ---- State ----
   const [game, setGame] = useState<GameResponse | null>(null);
-  const [selected, setSelected] = useState<{ row: number; col: number } | null>(null);
-  const [validMoves, setValidMoves] = useState<{ row: number; col: number }[]>([]);
+  const [selected, setSelected] = useState<{ row: number; col: number } | null>(
+    null,
+  );
+  const [validMoves, setValidMoves] = useState<{ row: number; col: number }[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [lastMove, setLastMove] = useState<{
@@ -78,7 +82,9 @@ const GamePage = () => {
   const socketRef = useRef<any>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [socketConnecting, setSocketConnecting] = useState(true);
-  const [user, setUser] = useState<{ id: string; username: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; username: string } | null>(
+    null,
+  );
   const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // ---- Chat toggle & unread count ----
@@ -112,11 +118,11 @@ const GamePage = () => {
     board: Board,
     color: PieceColor,
     fromRow: number,
-    fromCol: number
+    fromCol: number,
   ): Move[] => {
     const allMoves = board.getValidMoves(color);
     const captureMoves = allMoves.filter(
-      (m) => m.fromRow === fromRow && m.fromCol === fromCol && m.isCapture
+      (m) => m.fromRow === fromRow && m.fromCol === fromCol && m.isCapture,
     );
     if (captureMoves.length === 0) return [];
 
@@ -135,7 +141,7 @@ const GamePage = () => {
             (m) =>
               m.fromRow === forced.row &&
               m.fromCol === forced.col &&
-              m.isCapture
+              m.isCapture,
           );
         if (nextMoves.length === 0) break;
         const nextMove = nextMoves[0];
@@ -170,7 +176,9 @@ const GamePage = () => {
 
     for (let i = 0; i < moves.length; i++) {
       const move = moves[i];
-      console.log(`🔄 Step ${i+1}/${moves.length}: (${move.fromRow},${move.fromCol}) → (${move.toRow},${move.toCol})`);
+      console.log(
+        `🔄 Step ${i + 1}/${moves.length}: (${move.fromRow},${move.fromCol}) → (${move.toRow},${move.toCol})`,
+      );
 
       try {
         await Promise.race([
@@ -181,15 +189,15 @@ const GamePage = () => {
             toCol: move.toCol,
           }),
           new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Move timeout")), 5000)
-          )
+            setTimeout(() => reject(new Error("Move timeout")), 5000),
+          ),
         ]);
 
-        console.log(`✅ Step ${i+1} succeeded`);
-        await new Promise(resolve => setTimeout(resolve, 150));
+        console.log(`✅ Step ${i + 1} succeeded`);
+        await new Promise((resolve) => setTimeout(resolve, 150));
         await fetchGame();
       } catch (err) {
-        console.error(`❌ Auto‑capture step ${i+1} failed:`, err);
+        console.error(`❌ Auto‑capture step ${i + 1} failed:`, err);
         // On failure, refresh the board state and break the chain
         await fetchGame();
         setSelected(null);
@@ -209,11 +217,24 @@ const GamePage = () => {
       const res = await api.get(`/games/${id}`);
       const data: GameResponse = res.data;
 
+      // ✅ Ensure board and moves are arrays
+      const boardData =
+        data.board && Array.isArray(data.board.board) ? data.board.board : [];
+      const movesData = Array.isArray(data.moves) ? data.moves : [];
+      const safeData = {
+        ...data,
+        board: {
+          ...data.board,
+          board: boardData,
+        },
+        moves: movesData,
+      };
+
       const newHash = JSON.stringify({
-        board: data.board.board,
-        currentTurn: data.board.currentTurn,
-        movesLength: data.moves.length,
-        status: data.game.status,
+        board: safeData.board.board,
+        currentTurn: safeData.board.currentTurn,
+        movesLength: safeData.moves.length,
+        status: safeData.game.status,
       });
 
       if (newHash === currentGameHash.current) {
@@ -224,17 +245,17 @@ const GamePage = () => {
       console.log("📥 Updating game state from REST (hash changed)");
       currentGameHash.current = newHash;
 
-      setGame(data);
+      setGame(safeData);
 
       const board = new Board();
-      board.setState(data.board.board, data.board.currentTurn);
-      if (data.board.multiCapturePiece) {
-        (board as any).multiCapturePiece = data.board.multiCapturePiece;
+      board.setState(safeData.board.board, safeData.board.currentTurn);
+      if (safeData.board.multiCapturePiece) {
+        (board as any).multiCapturePiece = safeData.board.multiCapturePiece;
       }
       setLocalBoard(board);
 
-      if (data.moves && data.moves.length > 0) {
-        const last = data.moves[data.moves.length - 1];
+      if (safeData.moves && safeData.moves.length > 0) {
+        const last = safeData.moves[safeData.moves.length - 1];
         const [fromRow, fromCol] = last.fromSquare.split("-").map(Number);
         const [toRow, toCol] = last.toSquare.split("-").map(Number);
         setLastMove({
@@ -245,10 +266,10 @@ const GamePage = () => {
         setLastMove(null);
       }
 
-      if (data.board.multiCapturePiece) {
-        const forced = data.board.multiCapturePiece;
+      if (safeData.board.multiCapturePiece) {
+        const forced = safeData.board.multiCapturePiece;
         setSelected({ row: forced.row, col: forced.col });
-        const moves = board.getValidMoves(data.board.currentTurn);
+        const moves = board.getValidMoves(safeData.board.currentTurn);
         const targets = moves
           .filter((m) => m.fromRow === forced.row && m.fromCol === forced.col)
           .map((m) => ({ row: m.toRow, col: m.toCol }));
@@ -258,9 +279,10 @@ const GamePage = () => {
         setValidMoves([]);
       }
 
-      if (data.game.status !== "ACTIVE" && data.game.winnerId) {
-        if (data.game.winnerId === data.game.whiteId) playSound("win");
-        else if (data.game.winnerId === data.game.blackId) playSound("lose");
+      if (safeData.game.status !== "ACTIVE" && safeData.game.winnerId) {
+        if (safeData.game.winnerId === safeData.game.whiteId) playSound("win");
+        else if (safeData.game.winnerId === safeData.game.blackId)
+          playSound("lose");
       }
 
       setLoading(false);
@@ -317,14 +339,31 @@ const GamePage = () => {
 
     const onGameState = (data: any) => {
       if (!data || !data.moves) return;
-      console.log(`📩 game_state received at ${new Date().toISOString()}`, data);
+      console.log(
+        `📩 game_state received at ${new Date().toISOString()}`,
+        data,
+      );
+
+      // ✅ Ensure board and moves are arrays
+      const boardData =
+        data.board && Array.isArray(data.board.board) ? data.board.board : [];
+      const movesData = Array.isArray(data.moves) ? data.moves : [];
+      const safeData = {
+        ...data,
+        board: {
+          ...data.board,
+          board: boardData,
+        },
+        moves: movesData,
+      };
+
       lastUpdateTimestamp.current = Date.now();
 
       const newHash = JSON.stringify({
-        board: data.board.board,
-        currentTurn: data.board.currentTurn,
-        movesLength: data.moves.length,
-        status: data.game.status,
+        board: safeData.board.board,
+        currentTurn: safeData.board.currentTurn,
+        movesLength: safeData.moves.length,
+        status: safeData.game.status,
       });
       if (newHash === currentGameHash.current) {
         console.log("⏭️ Socket state unchanged, skipping update");
@@ -337,19 +376,19 @@ const GamePage = () => {
         moveTimeoutRef.current = null;
       }
 
-      setGame(data);
+      setGame(safeData);
       setMakingMove(false);
       setIsSubmitting(false);
 
       const board = new Board();
-      board.setState(data.board.board, data.board.currentTurn);
-      if (data.board.multiCapturePiece) {
-        (board as any).multiCapturePiece = data.board.multiCapturePiece;
+      board.setState(safeData.board.board, safeData.board.currentTurn);
+      if (safeData.board.multiCapturePiece) {
+        (board as any).multiCapturePiece = safeData.board.multiCapturePiece;
       }
       setLocalBoard(board);
 
-      if (data.moves && data.moves.length > 0) {
-        const last = data.moves[data.moves.length - 1];
+      if (safeData.moves && safeData.moves.length > 0) {
+        const last = safeData.moves[safeData.moves.length - 1];
         const [fromRow, fromCol] = last.fromSquare.split("-").map(Number);
         const [toRow, toCol] = last.toSquare.split("-").map(Number);
         setLastMove({
@@ -360,10 +399,10 @@ const GamePage = () => {
         setLastMove(null);
       }
 
-      if (data.board.multiCapturePiece) {
-        const forced = data.board.multiCapturePiece;
+      if (safeData.board.multiCapturePiece) {
+        const forced = safeData.board.multiCapturePiece;
         setSelected({ row: forced.row, col: forced.col });
-        const moves = board.getValidMoves(data.board.currentTurn);
+        const moves = board.getValidMoves(safeData.board.currentTurn);
         const targets = moves
           .filter((m) => m.fromRow === forced.row && m.fromCol === forced.col)
           .map((m) => ({ row: m.toRow, col: m.toCol }));
@@ -373,9 +412,10 @@ const GamePage = () => {
         setValidMoves([]);
       }
 
-      if (data.game.status !== "ACTIVE" && data.game.winnerId) {
-        if (data.game.winnerId === data.game.whiteId) playSound("win");
-        else if (data.game.winnerId === data.game.blackId) playSound("lose");
+      if (safeData.game.status !== "ACTIVE" && safeData.game.winnerId) {
+        if (safeData.game.winnerId === safeData.game.whiteId) playSound("win");
+        else if (safeData.game.winnerId === safeData.game.blackId)
+          playSound("lose");
       }
     };
 
@@ -430,7 +470,9 @@ const GamePage = () => {
       const now = Date.now();
       const timeSinceLastUpdate = now - lastUpdateTimestamp.current;
       if (!socketConnected || timeSinceLastUpdate > 5000) {
-        console.log(`⏰ Fallback: ${timeSinceLastUpdate}ms since last update → fetching via REST`);
+        console.log(
+          `⏰ Fallback: ${timeSinceLastUpdate}ms since last update → fetching via REST`,
+        );
         fetchGame();
       }
     }, 5000);
@@ -445,7 +487,7 @@ const GamePage = () => {
 
     const onChatMessage = () => {
       if (!chatOpen) {
-        setUnreadCount(prev => prev + 1);
+        setUnreadCount((prev) => prev + 1);
       }
     };
 
@@ -460,7 +502,7 @@ const GamePage = () => {
 
   // ---- Toggle chat ----
   const toggleChat = () => {
-    setChatOpen(prev => !prev);
+    setChatOpen((prev) => !prev);
     if (!chatOpen) {
       setUnreadCount(0); // Reset unread when opening
     }
@@ -468,7 +510,14 @@ const GamePage = () => {
 
   // ---- Handle square click (with error recovery) ----
   const handleSquareClick = (row: number, col: number) => {
-    if (!game || game.game.status !== "ACTIVE" || makingMove || autoCapturing || isSubmitting) return;
+    if (
+      !game ||
+      game.game.status !== "ACTIVE" ||
+      makingMove ||
+      autoCapturing ||
+      isSubmitting
+    )
+      return;
 
     const multiPiece = game.board.multiCapturePiece;
     if (multiPiece) return;
@@ -479,7 +528,9 @@ const GamePage = () => {
 
     if (playerColor !== game.board.currentTurn) return;
 
-    const piece = game.board.board[row]?.[col];
+    // ✅ Guard against missing board
+    const boardRow = game.board.board[row];
+    const piece = boardRow ? boardRow[col] : null;
 
     if (!selected) {
       if (!piece || piece.color !== playerColor) return;
@@ -521,7 +572,11 @@ const GamePage = () => {
     }
     const allMoves = board.getValidMoves(game.board.currentTurn);
     const chosenMove = allMoves.find(
-      (m) => m.fromRow === selected.row && m.fromCol === selected.col && m.toRow === row && m.toCol === col
+      (m) =>
+        m.fromRow === selected.row &&
+        m.fromCol === selected.col &&
+        m.toRow === row &&
+        m.toCol === col,
     );
     if (!chosenMove) return;
 
@@ -531,7 +586,7 @@ const GamePage = () => {
         board,
         game.board.currentTurn,
         selected.row,
-        selected.col
+        selected.col,
       );
       if (chain.length > 0) {
         setSelected(null);
@@ -568,21 +623,24 @@ const GamePage = () => {
         moveTimeoutRef.current = null;
       }, 5000);
 
-      socketRef.current.emit("make_move", {
-        gameId: id,
-        userId: user?.id,
-        ...movePayload,
-      }, (response: any) => {
-        // Optional callback to handle response/error from server
-        if (response && response.error) {
-          console.error("Socket move error:", response.error);
-          setMakingMove(false);
-          setIsSubmitting(false);
-          fetchGame();
-          setSelected(null);
-          setValidMoves([]);
-        }
-      });
+      socketRef.current.emit(
+        "make_move",
+        {
+          gameId: id,
+          userId: user?.id,
+          ...movePayload,
+        },
+        (response: any) => {
+          if (response && response.error) {
+            console.error("Socket move error:", response.error);
+            setMakingMove(false);
+            setIsSubmitting(false);
+            fetchGame();
+            setSelected(null);
+            setValidMoves([]);
+          }
+        },
+      );
       // Refresh optimistically; the socket will also push state
       setTimeout(() => fetchGame(), 200);
       return;
@@ -600,7 +658,9 @@ const GamePage = () => {
       })
       .catch((err) => {
         console.error("REST move error:", err);
-        alert("Move error: " + (err.response?.data?.message || "Unknown error"));
+        alert(
+          "Move error: " + (err.response?.data?.message || "Unknown error"),
+        );
         // Refresh board to recover
         fetchGame();
         setSelected(null);
@@ -615,11 +675,16 @@ const GamePage = () => {
   // ---- Status badge ----
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "ACTIVE": return "badge-active";
-      case "WHITE_WINS": return "badge-white-wins";
-      case "BLACK_WINS": return "badge-black-wins";
-      case "DRAW": return "badge-draw";
-      default: return "badge-active";
+      case "ACTIVE":
+        return "badge-active";
+      case "WHITE_WINS":
+        return "badge-white-wins";
+      case "BLACK_WINS":
+        return "badge-black-wins";
+      case "DRAW":
+        return "badge-draw";
+      default:
+        return "badge-active";
     }
   };
 
@@ -638,19 +703,28 @@ const GamePage = () => {
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-4">
         <div className="text-5xl">{error ? "😕" : "🔍"}</div>
         <h2 className="text-xl text-red-400">{error || "Game not found"}</h2>
-        <button onClick={() => navigate("/")} className="btn-premium text-sm py-2 px-6">
+        <button
+          onClick={() => navigate("/")}
+          className="btn-premium text-sm py-2 px-6"
+        >
           Back to Dashboard
         </button>
       </div>
     );
   }
 
-  const isYourTurn = game.board.currentTurn === "white" && game.game.status === "ACTIVE";
+  const isYourTurn =
+    game.board.currentTurn === "white" && game.game.status === "ACTIVE";
   const multiPiece = game.board.multiCapturePiece;
   const gameStatus = game.game.status;
   const turnColor = game.board.currentTurn === "white" ? "White" : "Black";
 
-  const userColor = game.game.whiteId === user?.id ? "white" : game.game.blackId === user?.id ? "black" : null;
+  const userColor =
+    game.game.whiteId === user?.id
+      ? "white"
+      : game.game.blackId === user?.id
+        ? "black"
+        : null;
 
   const whiteAvatarUrl = game.whiteAvatar
     ? `${API_URL}${game.whiteAvatar}`
@@ -666,38 +740,63 @@ const GamePage = () => {
 
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="flex flex-wrap items-center gap-3 mb-6">
-          <button onClick={() => navigate("/")} className="text-gray-400 hover:text-white transition flex items-center gap-2 glass px-4 py-2 rounded-xl text-sm">
+          <button
+            onClick={() => navigate("/")}
+            className="text-gray-400 hover:text-white transition flex items-center gap-2 glass px-4 py-2 rounded-xl text-sm"
+          >
             ← Back
           </button>
-          <button onClick={handleManualRefresh} className="text-gray-300 hover:text-white transition flex items-center gap-2 glass px-4 py-2 rounded-xl text-sm" title="Refresh game state">
+          <button
+            onClick={handleManualRefresh}
+            className="text-gray-300 hover:text-white transition flex items-center gap-2 glass px-4 py-2 rounded-xl text-sm"
+            title="Refresh game state"
+          >
             🔄 Refresh
           </button>
           <h1 className="text-xl md:text-2xl font-bold text-white">
-            Game <span className="text-gray-400 font-mono">#{id?.slice(0, 8)}</span>
+            Game{" "}
+            <span className="text-gray-400 font-mono">#{id?.slice(0, 8)}</span>
           </h1>
-          <span className={`ml-auto ${getStatusBadge(gameStatus)}`}>{gameStatus}</span>
+          <span className={`ml-auto ${getStatusBadge(gameStatus)}`}>
+            {gameStatus}
+          </span>
           {game.game.winnerId && (
             <span className="text-sm text-yellow-400">
-              Winner: {game.game.winnerId === game.game.whiteId ? "White" : "Black"}
+              Winner:{" "}
+              {game.game.winnerId === game.game.whiteId ? "White" : "Black"}
             </span>
           )}
         </div>
 
         <div className="flex justify-between items-center glass p-3 mb-4">
           <div className="flex items-center gap-3">
-            <img src={whiteAvatarUrl} alt={game.whiteUsername} className="w-10 h-10 rounded-full border-2 border-white/20" />
+            <img
+              src={whiteAvatarUrl}
+              alt={game.whiteUsername}
+              className="w-10 h-10 rounded-full border-2 border-white/20"
+            />
             <div>
               <div className="text-sm text-gray-300">White</div>
-              <div className="font-semibold text-white">{game.whiteUsername}</div>
+              <div className="font-semibold text-white">
+                {game.whiteUsername}
+              </div>
             </div>
           </div>
-          <div className="text-center text-xs text-gray-400">{turnColor} turn</div>
+          <div className="text-center text-xs text-gray-400">
+            {turnColor} turn
+          </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
               <div className="text-sm text-gray-300">Black</div>
-              <div className="font-semibold text-white">{game.blackUsername}</div>
+              <div className="font-semibold text-white">
+                {game.blackUsername}
+              </div>
             </div>
-            <img src={blackAvatarUrl} alt={game.blackUsername} className="w-10 h-10 rounded-full border-2 border-white/20" />
+            <img
+              src={blackAvatarUrl}
+              alt={game.blackUsername}
+              className="w-10 h-10 rounded-full border-2 border-white/20"
+            />
           </div>
         </div>
 
@@ -705,16 +804,24 @@ const GamePage = () => {
           <div className="glass p-4 mb-4 text-center">
             <p className="text-gray-300 text-sm">
               Share this link with your friend:
-              <span className="ml-2 text-yellow-300 font-mono break-all">{window.location.href}</span>
+              <span className="ml-2 text-yellow-300 font-mono break-all">
+                {window.location.href}
+              </span>
             </p>
             {game.game.blackId === "WAITING" && (
-              <p className="text-blue-300 text-xs mt-1">Waiting for opponent to join...</p>
+              <p className="text-blue-300 text-xs mt-1">
+                Waiting for opponent to join...
+              </p>
             )}
             {game.game.blackId !== "WAITING" && game.game.blackId !== "AI" && (
-              <p className="text-green-300 text-xs mt-1">Both players are in the game!</p>
+              <p className="text-green-300 text-xs mt-1">
+                Both players are in the game!
+              </p>
             )}
             {!socketConnected && (
-              <p className="text-yellow-300 text-xs mt-1">⚠️ Connecting to game server...</p>
+              <p className="text-yellow-300 text-xs mt-1">
+                ⚠️ Connecting to game server...
+              </p>
             )}
           </div>
         )}
@@ -722,7 +829,9 @@ const GamePage = () => {
         <div className="flex flex-col xl:flex-row gap-8">
           <div className="flex-1 flex flex-col items-center">
             <div className="w-full flex justify-start items-center gap-4 mb-4">
-              <label className="text-gray-300 text-sm font-medium">Board Theme:</label>
+              <label className="text-gray-300 text-sm font-medium">
+                Board Theme:
+              </label>
               <select
                 value={selectedTheme}
                 onChange={(e) => handleThemeChange(e.target.value)}
@@ -744,7 +853,7 @@ const GamePage = () => {
                   validMoves={validMoves}
                   lastMove={lastMove}
                   theme={THEMES[selectedTheme]}
-                  flip={userColor === 'black'}
+                  flip={userColor === "black"}
                 />
 
                 {/* 🔴 Deep red horizontal line – demarcation between board and side panel */}
@@ -753,7 +862,9 @@ const GamePage = () => {
                 </div>
               </>
             ) : (
-              <div className="text-center text-gray-400 py-8">Loading board...</div>
+              <div className="text-center text-gray-400 py-8">
+                Loading board...
+              </div>
             )}
           </div>
 

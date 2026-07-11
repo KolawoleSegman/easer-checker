@@ -32,7 +32,10 @@ const Tournaments = () => {
     try {
       setLoading(true);
       const res = await api.get("/tournaments");
-      setTournaments(res.data);
+      // ✅ Safely extract the array
+      const data = res.data;
+      const tournamentsArray = Array.isArray(data) ? data : (data?.data ?? []);
+      setTournaments(tournamentsArray);
       setError("");
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to load tournaments");
@@ -74,7 +77,11 @@ const Tournaments = () => {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-400">Loading tournaments...</div>;
+    return (
+      <div className="p-8 text-center text-gray-400">
+        Loading tournaments...
+      </div>
+    );
   }
 
   return (
@@ -95,7 +102,9 @@ const Tournaments = () => {
         )}
 
         <div className="glass p-6 mb-6">
-          <h2 className="text-xl font-semibold text-white mb-3">Create Tournament</h2>
+          <h2 className="text-xl font-semibold text-white mb-3">
+            Create Tournament
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <input
               type="text"
@@ -145,10 +154,12 @@ const Tournaments = () => {
             tournaments.map((t) => (
               <div key={t.id} className="glass p-6">
                 <h3 className="text-xl font-bold text-white">{t.name}</h3>
-                <p className="text-gray-400 text-sm">{t.description || "No description"}</p>
+                <p className="text-gray-400 text-sm">
+                  {t.description || "No description"}
+                </p>
                 <p className="text-sm text-gray-300 mt-1">
-                  Status: <span className="font-medium">{t.status}</span> • 
-                  Max Players: {t.maxPlayers}
+                  Status: <span className="font-medium">{t.status}</span> • Max
+                  Players: {t.maxPlayers}
                 </p>
                 <div className="mt-3 flex gap-2 flex-wrap">
                   <button
