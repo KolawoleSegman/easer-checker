@@ -217,6 +217,14 @@ const GamePage = () => {
       const res = await api.get(`/games/${id}`);
       const data: GameResponse = res.data;
 
+      // ✅ Guard: if game object is missing, handle gracefully
+      if (!data.game) {
+        console.error("fetchGame: missing game object", data);
+        setError("Invalid game data – game object missing");
+        setLoading(false);
+        return;
+      }
+
       // ✅ Ensure board and moves are arrays
       const boardData =
         data.board && Array.isArray(data.board.board) ? data.board.board : [];
@@ -343,6 +351,12 @@ const GamePage = () => {
         `📩 game_state received at ${new Date().toISOString()}`,
         data,
       );
+
+      // ✅ Guard: if game object is missing, ignore the update
+      if (!data.game) {
+        console.warn("onGameState: missing game object, ignoring");
+        return;
+      }
 
       // ✅ Ensure board and moves are arrays
       const boardData =
