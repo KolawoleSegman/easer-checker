@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { GamesService } from './games.service';
-import { GamesController } './games.controller';
+import { GamesController } from './games.controller';
 import { AiModule } from '../ai/ai.module';
 
 @Module({
