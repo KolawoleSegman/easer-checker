@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  passwordHash  String
+  eloRating     Int       @default(1200)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  gamesAsWhite  Game[]    @relation("whitePlayer")
+  gamesAsBlack  Game[]    @relation("blackPlayer")
+  statistics    Statistics?
+  friendships   Friendship[]
+  notifications Notification[]
+}
+
+model Game {
+  id           String   @id @default(cuid())
+  whiteId      String   @map("white_id")
+  blackId      String   @map("black_id")
+  winnerId     String?  @map("winner_id")
+  pgnMoves     String   @default("")
+  startedAt    DateTime @default(now())
+  endedAt      DateTime?
+  status       GameStatus @default(ACTIVE)
+  
+  // 👇 New field for AI difficulty
+  aiDifficulty String?  @default("medium") @map("ai_difficulty")
+
+  whitePlayer User @relation("whitePlayer", fields: [whiteId], references: [id])
+  blackPlayer User @relation("blackPlayer", fields: [blackId], references: [id])
+  winner      User? @relation("winner", fields: [winnerId], references: [id])
+  moves       Move[]
+}
+
+enum GameStatus {
+  ACTIVE
+  WHITE_WINS
+  BLACK_WINS
+  DRAW
+  ABANDONED
+}
+
+model Move {
+  id           String   @id @default(cuid())
+  gameId       String   @map("game_id")
+  turnNumber   Int
+  fromSquare   String
+  toSquare     String
+  capturedPiece String?
+  promotedToKing Boolean @default(false)
+  createdAt    DateTime @default(now())
+
+  game Game @relation(fields: [gameId], references: [id])
+}
+
+model Statistics {
+  id          String @id @default(cuid())
+  userId      String @unique @map("user_id")
+  wins        Int    @default(0)
+  losses      Int    @default(0)
+  draws       Int    @default(0)
+  totalMoves  Int    @default(0)
+  averageTime Int?
+  maxWinStreak Int  @default(0)
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Friendship {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  friendId   String   @map("friend_id")
+  status     FriendStatus @default(PENDING)
+  createdAt  DateTime @default(now())
+
+  user   User @relation("user", fields: [userId], references: [id])
+  friend User @relation("friend", fields: [friendId], references: [id])
+
+  @@unique([userId, friendId])
+}
+
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  type      String
+  content   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}

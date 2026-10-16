@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1783031120896,
+      "tag": "0000_sturdy_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1783114710592,
+      "tag": "0001_nasty_warlock",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1783172991258,
+      "tag": "0002_glossy_thunderbolts",
+      "breakpoints": true
+    }
+  ]
+}
